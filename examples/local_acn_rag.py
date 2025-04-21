@@ -10,6 +10,19 @@ import re
 input_folder = r"C:\Users\d.fernandez.macias\Desktop\temp"
 zones_path = "zones.json"
 
+def save_results(parsed_results):
+    with open("rag_dataset.json", "w", encoding="utf-8") as f:
+        json.dump(parsed_results, f, ensure_ascii=False, indent=2)
+
+def join_content(content):
+    relevant_keys = ["projects","profile","industry_experience","expertise"]
+    joined_strings = ""
+    for entry in relevant_keys:
+        value = content.get(entry, [''])
+        if value:
+            joined_strings += f"{entry}: {value[0].strip()}\n"
+    return joined_strings.strip()
+
 def clean_text(text):
     if not text:
         return ""
@@ -34,16 +47,6 @@ def classify_shape_by_position(shape, zones):
             continue
         return section
     return "unknown"
-
-def parse_slide_old(pptx_path, zones):
-    prs = Presentation(pptx_path)
-    slide = prs.slides[0]
-    content = defaultdict(list)
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            section = classify_shape_by_position(shape, zones)
-            content[section].append(shape.text.strip())
-    return dict(content)
 
 def parse_slide(pptx_path, zones):
     prs = Presentation(pptx_path)
@@ -75,9 +78,14 @@ def process_pptx_folder(folder_path, zones_path):
         metadata = get_file_metadata(pptx_file_path)
         try:
             content = parse_slide(pptx_file_path, zones)
+            prepared_content = join_content(content)
+            metadata["email"] = content.get("email", [""])[0]
+            metadata["phone"] = content.get("phone", [""])[0]
+            metadata["location"] = content.get("location", [""])[0]
+            metadata["title"] = content.get("title", [""])[0]
             results.append({
                 "metadata": metadata,
-                "content": content
+                "content": prepared_content
             })
         except Exception as e:
             print(f"Error parsing {file}: {e}")
@@ -85,4 +93,4 @@ def process_pptx_folder(folder_path, zones_path):
     return results
 if __name__ == "__main__":
     parsed_results = process_pptx_folder(input_folder, zones_path)
-    pprint.pprint(parsed_results)
+    save_results(parsed_results)
